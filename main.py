@@ -1,5 +1,7 @@
 #!/usr/bin/python2.7
 
+# GPL-2.0-only
+
 # setting 0x0123 0x4567
 # wheel 0x01, position 0x23 with position 0x4567 on bigwheel
 #  -or-
@@ -17,19 +19,21 @@
 
 import precon, sys, time, os
 
-version="0.03ab"
+version="0.03ac"
 sleepintervalmax = 5
 
 flushline=0
 outcount=0
-lastflush=time.time()
 flushlinelimit=40
+starttime=time.time()
+lastflush=starttime*1
+lastspotcheck=0.0
+spotchecknum=0x18681
 
 diagnosticlines=[]
 
 def diagwriteout():
     global diagnosticlines, outcount
-    #flname=str(int(time.time()))+"diag.txt"
     flname="diag"+str(int(time.time()))
     for i in sys.argv[1:]:flname=flname+"_"+i
     while "0x" in flname: flname=flname.replace("0x",'')
@@ -56,7 +60,6 @@ diagnosticlines.append("Work list shows up as "+str(work)+" <---\r\n")
 diagnosticlines.append("bigwheelpos appears to be "+hex(bigwheelpos)+"\r\n")
 
 cassette=[]
-#wheelpos=0x0
 wheelposstr=""
 cassettelength=len(work)
 
@@ -77,24 +80,6 @@ wheelpos=int(wheelposstr,16)
 
 diagnosticlines.append("preliminary wheelpos is "+hex(wheelpos)+"\r\n")
 
-'''
-while work:
-    wheelpos=wheelpos<<8
-    workl = work.pop(0)
-    diagnosticlines.append("workl appears to be "+workl+"\r\n")
-    setting=workl[2:].zfill(4)
-    wheel=int(setting[:2],16)
-    position=int(setting[2:],16)
-    diagnosticlines.append("adding setting "+setting+" with wheel "+hex(wheel)+" at position "+hex(position)+"\r\n")
-    cassette.append(precon.WHEELS[wheel])
-    wheelpos+=position
-    diagnosticlines.append("wheelpos is now at "+hex(wheelpos)+"\r\n")
-    if wheelpos==0:
-        diagnosticlines.append("First wheel position cannot be zero in this version. I'd apologize, but whatever.\r\n")
-        diagwriteout()
-        raise RuntimeError, "unsupported wheel position"
-'''
-
 diagnosticlines.append("Moving on...\r\n")
 wheelposmask=(256**cassettelength)-1
 diagnosticlines.append("wheelposmask is figured to be "+hex(wheelposmask)+"\r\n")
@@ -107,7 +92,7 @@ diagnosticlines.append("starting intake loops at "+time.ctime()+"\r\n")
 
 # these two lines (and the following loop, for that matter) are there because
 # some processes don't start sending data through the pipe in a timely fashion
-# this is sometimes referred to as the "delay timer"
+# sometimes I think of this as the "delay timer"
 sleepinterval=0
 time.sleep(sleepinterval)
 
@@ -160,16 +145,20 @@ while nextbyte!='':
             raise RuntimeError, "choked and wrote out"
         flushline=0
         #spot check
-    if hex(outcount)[-5:]=='18680':
+    if outcount%spotchecknum==0:
+        if time.time()-lastspotcheck<61:
+            spotchecknum=spotchecknum<<1
+            diagnosticlines.append("increased spot check interval to "+hex(spotchecknum)+"\r\n")
         diagnosticlines.append("Spot check triggered at "+time.ctime()+"\r\n")
         diagnosticlines.append("positionbytelist looks like:\r\n")
         diagnosticlines.append(str(positionbytelist)+"\r\n")
         diagnosticlines.append("bigwheelpos looks like:"+hex(bigwheelpos)+"\r\n")
+        lastspotcheck=time.time()
+        
     wheelpos+=1
     wheelpos=wheelpos&wheelposmask
     bigwheelpos+=1
     bigwheelpos=bigwheelpos&0xffff
-    #if not bigwheelpos: diagnosticlines.append("bigwheel position appears to be zero at "+time.ctime()+"\r\n")
     nextbyte=sys.stdin.read(1)
 
 diagnosticlines.append(time.ctime()+" Intake loops appear to be done.\r\n")
@@ -181,7 +170,6 @@ if positionbytes[-1]=='L':
     positionbytes=positionbytes[:-1].zfill(2*cassettelength)
 diagnosticlines.append("positionbytes appears to be "+positionbytes+"\r\n")
 positionbytelist=[positionbytes[j:j+2].zfill(2) for j in range(0, len(positionbytes), 2)]
-#positionbytelist=[positionbytes[j:j+2] for j in range(0, len(positionbytes), 2)]
 diagnosticlines.append("positionbytelist looks like "+str(positionbytelist)+"\r\n")
 lxr=0
 diagnosticlines.append("xrs appear to be:\r\n")

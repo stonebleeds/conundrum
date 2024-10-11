@@ -1,0 +1,7 @@
+started changelog at v0.03ac, changes since v0.03ab:
+ - explicitly stating GPL 2 only
+ - keeping track of start time
+ - trying to keep spot check spam to a minimum (changed spot check trigger in the course of that)
+ - removed a lot of dumb stuff that was commented out
+ - changed a dumb comment or two
+
